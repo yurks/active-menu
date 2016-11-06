@@ -66,9 +66,9 @@ ActiveMenu.menu = function(req, res, next) {
     for(var menuName in menuInstances) {
         // Assign Request
         menuInstances[menuName].currentRequest = req;
-        // Assign To Local
-        res.locals[menuName] = menuInstances[menuName];
     }
+    // Assign To Local
+    res.locals.menu = menuInstances;
     // Next
     next();
 };
