@@ -151,22 +151,13 @@ ActiveMenuNode.prototype.getRenderHtmlAttributes = function() {
     // Get Class Array
     var htmlClassArray = [];
 
-    // If Classes Are Already Defined, We Need to Append Rather Than Replace
-    if (this.htmlAttributes.hasOwnProperty('class')) {
-        htmlClassArray = this.htmlAttributes.class.split(' ');
-    }
-
-    // Handle Active State
-    if (this.isActive) {
-        htmlClassArray.push('active');
-    }
 
     // Handle Depth
     htmlClassArray.push('level-' + this.depth);
 
     // Handle Case of Being Only Child, Then First, Then Last
     if (this.isFirst && this.isLast) {
-        htmlClassArray.push('only');
+        htmlClassArray.push('single');
     } else if (this.isFirst) {
         htmlClassArray.push('first');
     } else if (this.isLast) {
@@ -178,8 +169,23 @@ ActiveMenuNode.prototype.getRenderHtmlAttributes = function() {
         htmlClassArray.push('parent');
     }
 
+    htmlClassArray.unshift('');
+    var htmlClasses = htmlClassArray.join(' menu-item-');
+    // If Classes Are Already Defined, We Need to Append Rather Than Replace
+    if (this.htmlAttributes.hasOwnProperty('class')) {
+        htmlClasses = this.htmlAttributes.class + htmlClasses;
+    }
+    // Handle Active State
+    if (this.isActive) {
+        htmlClasses += ' active';
+    }
+    var sanitizer = this.menuInstance.classNameSanitizer;
+    if (sanitizer) {
+        htmlClasses += ' menu-item--'+sanitizer(this.route);
+    }
+
     // Join Class List
-    htmlAttributes.class = htmlClassArray.join(' ');
+    htmlAttributes.class = htmlClasses.trim();
 
     // Return
     return htmlAttributes;
@@ -197,10 +203,10 @@ ActiveMenuNode.prototype.getListHtmlAttributes = function()
     var htmlClasses = [];
     // Handle Active State
     if (this.isActive) {
-        htmlClasses.push('active');
+        htmlClasses.push('menu-active');
     }
     // Handle Depth
-    htmlClasses.push('level-' + this.depth);
+    htmlClasses.push('menu-level-' + this.depth);
     // Add Classe
     htmlAttributes.class = htmlClasses.join(' ');
     // Return
@@ -226,7 +232,7 @@ ActiveMenuNode.prototype.getInnerHtml = function() {
     htmlAttributes.href = this.route;
 
     // Check Current Route
-    if (this.route == this.menuInstance.getCurrentRequestRoute()) {
+    if (this.route === this.menuInstance.activeRoute) {
         // Add Active Link Class to Link
         htmlAttributes.class = 'active';
         // Activate Parents
@@ -238,6 +244,7 @@ ActiveMenuNode.prototype.getInnerHtml = function() {
         htmlAttributes,
         this.text
     );
+
 
     // If A List, Inner HTML Must Be Wrapped in a List Item
     if (this.isList()) {

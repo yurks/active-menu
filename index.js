@@ -5,6 +5,8 @@
  */
 var ActiveMenuNode = require('./active-menu-node');
 
+var url = require('url');
+
 /**
  * Menu Instance Reference For This Menu (that = this)
  * @type {module}
@@ -17,13 +19,15 @@ var menuInstances = {};
  * @param menuName
  * @constructor
  */
-var ActiveMenu = module.exports = function(menuName) {
+var ActiveMenu = module.exports = function(menuName, classNameSanitizer) {
 
     // Assign Instance Reference
     menuInstances[menuName] = this;
 
     // Menu Name
     this.menuName = menuName;
+
+    this.classNameSanitizer = classNameSanitizer;
 
     /**
      * List of Child Nodes
@@ -38,10 +42,10 @@ var ActiveMenu = module.exports = function(menuName) {
     this.htmlAttributes = [];
 
     /**
-     * Current Request
-     * @type {request}
+     * Active Route
+     * @type {String}
      */
-    this.currentRequest = null;
+    this.activeRoute = '';
 
     /**
      * Depth
@@ -63,22 +67,17 @@ var ActiveMenu = module.exports = function(menuName) {
  * @param next
  */
 ActiveMenu.menu = function(req, res, next) {
+    var route = req.route || req.url;
+    route = typeof route === 'string' ? url.parse(route) : route;
+    route = route && route.path || '';
     for(var menuName in menuInstances) {
         // Assign Request
-        menuInstances[menuName].currentRequest = req;
+        menuInstances[menuName].activeRoute = route;
     }
     // Assign To Local
     res.locals.menu = menuInstances;
     // Next
     next();
-};
-
-/**
- * Get Current Request Route Path
- * @returns {String}
- */
-ActiveMenu.prototype.getCurrentRequestRoute = function() {
-    return this.currentRequest.route.path;
 };
 
 /**
@@ -139,9 +138,13 @@ ActiveMenu.prototype.toString = function() {
         childHtml.push(childNode.toHtml());
     });
 
+    this.htmlAttributes.class = 'menu ' + (this.htmlAttributes.class || '');
+    if (this.classNameSanitizer) {
+        this.htmlAttributes.class += ' menu--' + this.classNameSanitizer(this.menuName);
+    }
     // Wrap in Menu HTML, Compile and Return
     return this.generator.ul(
         this.htmlAttributes,
-        childHtml
+        childHtml.join('')
     ).compile();
 };
