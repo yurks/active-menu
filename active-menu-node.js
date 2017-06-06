@@ -187,8 +187,6 @@ ActiveMenuNode.prototype.getRenderHtmlAttributes = function() {
     // Join Class List
     htmlAttributes.class = htmlClasses.trim();
 
-    var isMicroData = false;
-
     if (this.menuInstance.isMicroData) {
         htmlAttributes.itemscope = '';
         htmlAttributes.itemtype = 'http://schema.org/ListItem';
@@ -316,14 +314,17 @@ ActiveMenuNode.prototype.toHtml = function(index) {
         htmlAttributes = this.getRenderHtmlAttributes();
     }
 
-    // Render
-    var elementHtml = this.menuInstance.generator[this.elementType](
-        htmlAttributes,
-        [elementInnerHtml,
+    if (this.menuInstance.isMicroData) {
+        elementInnerHtml = [elementInnerHtml,
             this.menuInstance.generator.meta(
                 {itemprop: 'position', content: '' + index}
             )
-        ]
+        ];
+    }
+    // Render
+    var elementHtml = this.menuInstance.generator[this.elementType](
+        htmlAttributes,
+        elementInnerHtml
     );
 
     // Compile and Return
