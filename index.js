@@ -91,6 +91,11 @@ ActiveMenu.prototype.setAttributes = function(attributes) {
     return this;
 };
 
+ActiveMenu.prototype.setAttribute = function(key, value) {
+    this.htmlAttributes[key] = value;
+    return this;
+};
+
 /**
  * Set Microdata ItemType
  *
