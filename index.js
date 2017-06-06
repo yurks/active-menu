@@ -1,163 +1,332 @@
 /**
- * Menu Node Class Requirement
+ * Active Menu Node Class
  *
- * @type {ActiveMenuNode}
- */
-var ActiveMenuNode = require('./active-menu-node');
-
-var url = require('url');
-
-/**
- * Menu Instance Reference For This Menu (that = this)
- * @type {module}
- */
-var menuInstances = {};
-
-/**
- * Main Menu Class
- *
- * @param menuName
+ * @param menuInstance
+ * @param parentNode
  * @constructor
  */
-var ActiveMenu = module.exports = function(menuName, classNameSanitizer) {
-
-    // Assign Instance Reference
-    menuInstances[menuName] = this;
-
-    // Menu Name
-    this.menuName = menuName;
-
-    this.classNameSanitizer = classNameSanitizer;
+var ActiveMenuNode = module.exports = function(menuInstance, parentNode) {
 
     /**
-     * List of Child Nodes
+     * Parent Node
+     * @type {ActiveMenu | ActiveMenuNode}
+     */
+    this.parent = parentNode;
+
+    /**
+     * Menu Instance
+     * @type {ActiveMenu}
+     */
+    this.menuInstance = menuInstance;
+
+    /**
+     * Display Text
+     * @type {String}
+     */
+    this.text = null;
+
+    /**
+     * Route
+     * @type {String}
+     */
+    this.route = null;
+
+    /**
+     * Element Type
+     * @type {string}
+     */
+    this.elementType = 'ul';
+
+    /**
+     * Children Nodes
      * @type {ActiveMenuNode[]}
      */
-    this.nodeList = [];
+    this.childNodes = [];
 
     /**
-     * HTML Attributes Array
+     * HTML Attributes
      * @type {Array}
      */
     this.htmlAttributes = [];
 
     /**
-     * Active Route
-     * @type {String}
+     * Menu Level / Depth
+     * @type {number}
      */
-    this.activeRoute = '';
+    this.depth = parentNode.depth + 1;
 
     /**
-     * Depth
-     * @type {int}
+     * Whether This Node is Active
+     * @type {boolean}
      */
-    this.depth = -1;
+    this.isActive = false;
 
     /**
-     * HTML Sourcery Generator
+     * Whether This Node is First In The Current Level
+     * @type {boolean}
      */
-    this.generator = require('html-sourcery');
-};
+    this.isFirst = false;
 
-
-/**
- * Middleware Function
- * @param req
- * @param res
- * @param next
- */
-ActiveMenu.menu = function(req, res, next) {
-    var route = req.route || req.url;
-    route = typeof route === 'string' ? url.parse(route) : route;
-    route = route && route.path || '';
-    for(var menuName in menuInstances) {
-        // Assign Request
-        menuInstances[menuName].activeRoute = route;
-    }
-    // Assign To Local
-    res.locals.menu = menuInstances;
-    // Next
-    next();
+    /**
+     * Whether This Node is Last In The Current Level
+     * @type {boolean}
+     */
+    this.isLast = false;
 };
 
 /**
  * Set HTML Attributes
  *
  * @param attributes
- * @returns {exports}
+ * @returns {ActiveMenuNode}
  */
-ActiveMenu.prototype.setAttributes = function(attributes) {
+ActiveMenuNode.prototype.setAttributes = function(attributes) {
     this.htmlAttributes = attributes;
     return this;
 };
 
 /**
- * Set Microdata ItemType
+ * Check If This Node Is a List
  *
- * @param type
- * @returns {exports}
+ * @returns {boolean}
  */
-ActiveMenu.prototype.setMicroData = function(type) {
-    this.htmlAttributes.itemscope = '';
-    this.htmlAttributes.itemtype = type;
-    this.isMicroData = true;
-    return this;
+ActiveMenuNode.prototype.isList = function() {
+    return this.elementType == 'ul';
 };
 
 /**
- * Add a New Menu Node
+ * Check If This Node is a Parent
+ */
+ActiveMenuNode.prototype.isParent = function() {
+    return this.childNodes.length > 0;
+};
+
+/**
+ * Add a Child Node to This Node
  *
  * @param text
  * @param route
  * @returns {ActiveMenuNode}
  */
-ActiveMenu.prototype.addMenuNode = function(text, route) {
-    // New Node
-    var newNode = new ActiveMenuNode(this, this);
-    // Assign Variables
+ActiveMenuNode.prototype.addMenuNode = function(text, route) {
+    var newNode = new ActiveMenuNode(this.menuInstance, this);
     newNode.text = text;
     newNode.route = route;
-    newNode.elementType = 'li';
-    // Add to List
-    this.nodeList.push(newNode);
-    // Return
+    if (this.isList()) {
+        newNode.elementType = 'li';
+    }
+    this.childNodes.push(newNode);
     return newNode;
 };
 
 /**
- * Render Menu to String
- * Can be called separately or with something like Jade by calling the menuname
+ * Activate This Branch of the Menu Tree.
  *
+ * Iterates up the parents of this node, activating them
+ * by appending a class of 'active' to their list element.
+ */
+ActiveMenuNode.prototype.activateBranch = function() {
+    this.isActive = true;
+    // Stop At The Top of The Branch
+    if (this.parent.hasOwnProperty('activateBranch')) {
+        this.parent.activateBranch();
+    } else {
+        this.parent.isActive = true;
+    }
+};
+
+/**
+ * Get The Render-able HTML Attributes
+ *
+ * @returns {Array}
+ */
+ActiveMenuNode.prototype.getRenderHtmlAttributes = function() {
+
+    // Attributes
+    var htmlAttributes = [];
+    for (var key in this.htmlAttributes) {
+        htmlAttributes[key] = this.htmlAttributes[key];
+    }
+
+    // Get Class Array
+    var htmlClassArray = [];
+
+
+    // Handle Depth
+    htmlClassArray.push('level-' + this.depth);
+
+    // Handle Case of Being Only Child, Then First, Then Last
+    if (this.isFirst && this.isLast) {
+        htmlClassArray.push('single');
+    } else if (this.isFirst) {
+        htmlClassArray.push('first');
+    } else if (this.isLast) {
+        htmlClassArray.push('last');
+    }
+
+    // Handle Case of Being A Parent
+    if (this.isParent()) {
+        htmlClassArray.push('parent');
+    }
+
+    htmlClassArray.unshift('');
+    var htmlClasses = htmlClassArray.join(' menu-item-');
+    // If Classes Are Already Defined, We Need to Append Rather Than Replace
+    if (this.htmlAttributes.hasOwnProperty('class')) {
+        htmlClasses = this.htmlAttributes.class + htmlClasses;
+    }
+    // Handle Active State
+    if (this.isActive) {
+        htmlClasses += ' active';
+    }
+    var sanitizer = this.menuInstance.classNameSanitizer;
+    if (sanitizer) {
+        htmlClasses += ' menu-item--'+sanitizer(this.route);
+    }
+
+    // Join Class List
+    htmlAttributes.class = htmlClasses.trim();
+
+    if (this.menuInstance.isMicroData) {
+        htmlAttributes.itemscope = '';
+        htmlAttributes.itemtype = 'http://schema.org/ListItem';
+        htmlAttributes.itemprop = 'itemListElement';
+    }
+
+    // Return
+    return htmlAttributes;
+};
+
+/**
+ * Get HTML Attributes for a List Element (<ul>)
+ * @returns {Array}
+ */
+ActiveMenuNode.prototype.getListHtmlAttributes = function()
+{
+    // Html Attributes
+    var htmlAttributes = [];
+    // HTML Classes
+    var htmlClasses = [];
+    // Handle Active State
+    if (this.isActive) {
+        htmlClasses.push('menu-active');
+    }
+    // Handle Depth
+    htmlClasses.push('menu-level-' + this.depth);
+    // Add Classe
+    htmlAttributes.class = htmlClasses.join(' ');
+    // Return
+    return htmlAttributes;
+};
+
+/**
+ * Generate The Inner HTML For This Node
  * @returns {String}
  */
-ActiveMenu.prototype.toString = function() {
+ActiveMenuNode.prototype.getInnerHtml = function() {
 
-    // Init Child Html
-    var childHtml = [];
+    // Inner Element Type
+    var elementType;
+    if (this.route) {
+        elementType = "a";
+    } else {
+        elementType = "span";
+    }
+
+    // Html Attributes
+    var htmlAttributes = [];
+    htmlAttributes.href = this.route;
+
+    // Check Current Route
+    if (this.route === this.menuInstance.activeRoute) {
+        // Add Active Link Class to Link
+        htmlAttributes.class = 'active';
+        // Activate Parents
+        this.activateBranch();
+    }
+
+    // Inner Html
+    var innerHtml = this.text;
+
+    if (this.menuInstance.isMicroData) {
+        innerHtml = this.menuInstance.generator.span(
+            {itemprop: 'name'},
+            innerHtml
+        );
+        htmlAttributes.itemscope = '';
+        htmlAttributes.itemtype = 'http://schema.org/Thing';
+        htmlAttributes.itemprop = 'item';
+    }
+
+    innerHtml = this.menuInstance.generator[elementType](
+        htmlAttributes,
+        innerHtml
+    );
+
+
+    // If A List, Inner HTML Must Be Wrapped in a List Item
+    if (this.isList()) {
+        innerHtml = this.menuInstance.generator.li(
+            this.getRenderHtmlAttributes(),
+            innerHtml
+        );
+    }
+
+    // Compile and Return
+    return innerHtml.compile();
+};
+
+/**
+ * Generate the HTML for this Node
+ * @returns {String}
+ */
+ActiveMenuNode.prototype.toHtml = function(index) {
+    // New HTML Tree
+    var elementInnerHtml = [];
+
+    // Set To Inactive (Prevents Caching of Active State on Nodes That Aren't Cached)
+    this.isActive = false;
+
+    // Inner Html
+    elementInnerHtml.push(this.getInnerHtml());
 
     // Node List for Reference Below
-    var nodeList = this.nodeList;
+    var nodeList = this.childNodes;
 
-    // Generate Children HTML Recursively
-    this.nodeList.forEach(function(childNode, key) {
+    // Render Children Source
+    this.childNodes.forEach(function(childNode, key) {
         // Handle First and Last
-        if (key === 0) {
+        if (key == 0) {
             childNode.isFirst = true;
         }
         if (key == (nodeList.length - 1)) {
             childNode.isLast = true;
         }
         // Append
-        childHtml.push(childNode.toHtml(childHtml.length));
+        elementInnerHtml.push(childNode.toHtml(elementInnerHtml.length));
     });
 
-    this.htmlAttributes.class = 'menu ' + (this.htmlAttributes.class || '');
-    if (this.classNameSanitizer) {
-        this.htmlAttributes.class += ' menu--' + this.classNameSanitizer(this.menuName);
+    // Handle List Attributes
+    var htmlAttributes;
+    if (this.isList()) {
+        htmlAttributes = this.getListHtmlAttributes();
+    } else {
+        htmlAttributes = this.getRenderHtmlAttributes();
     }
-    // Wrap in Menu HTML, Compile and Return
-    return this.generator.ul(
-        this.htmlAttributes,
-        childHtml.join('')
-    ).compile();
+
+    if (this.menuInstance.isMicroData) {
+        elementInnerHtml = [elementInnerHtml,
+            this.menuInstance.generator.meta(
+                {itemprop: 'position', content: '' + index}
+            )
+        ];
+    }
+    // Render
+    var elementHtml = this.menuInstance.generator[this.elementType](
+        htmlAttributes,
+        elementInnerHtml
+    );
+
+    // Compile and Return
+    return elementHtml.compile();
 };
