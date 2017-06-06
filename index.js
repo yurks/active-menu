@@ -92,6 +92,19 @@ ActiveMenu.prototype.setAttributes = function(attributes) {
 };
 
 /**
+ * Set Microdata ItemType
+ *
+ * @param type
+ * @returns {exports}
+ */
+ActiveMenu.prototype.setMicroData = function(type) {
+    this.htmlAttributes.itemscope = '';
+    this.htmlAttributes.itemtype = type;
+    this.isMicroData = true;
+    return this;
+};
+
+/**
  * Add a New Menu Node
  *
  * @param text
@@ -135,7 +148,7 @@ ActiveMenu.prototype.toString = function() {
             childNode.isLast = true;
         }
         // Append
-        childHtml.push(childNode.toHtml());
+        childHtml.push(childNode.toHtml(childHtml.length));
     });
 
     this.htmlAttributes.class = 'menu ' + (this.htmlAttributes.class || '');
