@@ -187,6 +187,14 @@ ActiveMenuNode.prototype.getRenderHtmlAttributes = function() {
     // Join Class List
     htmlAttributes.class = htmlClasses.trim();
 
+    var isMicroData = false;
+
+    if (this.menuInstance.isMicroData) {
+        htmlAttributes.itemscope = '';
+        htmlAttributes.itemtype = 'http://schema.org/ListItem';
+        htmlAttributes.itemprop = 'itemListElement';
+    }
+
     // Return
     return htmlAttributes;
 };
@@ -240,9 +248,21 @@ ActiveMenuNode.prototype.getInnerHtml = function() {
     }
 
     // Inner Html
-    var innerHtml = this.menuInstance.generator[elementType](
+    var innerHtml = this.text;
+
+    if (this.menuInstance.isMicroData) {
+        innerHtml = this.menuInstance.generator.span(
+            {itemprop: 'name'},
+            innerHtml
+        );
+        htmlAttributes.itemscope = '';
+        htmlAttributes.itemtype = 'http://schema.org/Thing';
+        htmlAttributes.itemprop = 'item';
+    }
+
+    innerHtml = this.menuInstance.generator[elementType](
         htmlAttributes,
-        this.text
+        innerHtml
     );
 
 
@@ -262,7 +282,7 @@ ActiveMenuNode.prototype.getInnerHtml = function() {
  * Generate the HTML for this Node
  * @returns {String}
  */
-ActiveMenuNode.prototype.toHtml = function() {
+ActiveMenuNode.prototype.toHtml = function(index) {
     // New HTML Tree
     var elementInnerHtml = [];
 
@@ -285,7 +305,7 @@ ActiveMenuNode.prototype.toHtml = function() {
             childNode.isLast = true;
         }
         // Append
-        elementInnerHtml.push(childNode.toHtml());
+        elementInnerHtml.push(childNode.toHtml(elementInnerHtml.length));
     });
 
     // Handle List Attributes
@@ -299,7 +319,11 @@ ActiveMenuNode.prototype.toHtml = function() {
     // Render
     var elementHtml = this.menuInstance.generator[this.elementType](
         htmlAttributes,
-        elementInnerHtml
+        [elementInnerHtml,
+            this.menuInstance.generator.meta(
+                {itemprop: 'position', content: '' + index}
+            )
+        ]
     );
 
     // Compile and Return
